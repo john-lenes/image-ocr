@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "OCR — Extrair Texto da Tela",
+  "version": "2.0.0",
+  "description": "Selecione qualquer área visível da tela e extraia o texto via OCR (Tesseract.js). Processamento 100% local — nenhum dado enviado a servidores.",
+
+  "permissions": [
+    "tabs",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "OCR — Extrair Texto da Tela",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "libs/worker.min.js",
+        "libs/tesseract-core-simd.wasm.js",
+        "libs/tesseract-core.wasm.js",
+        "libs/tesseract-core-simd-lstm.wasm.js",
+        "libs/tesseract-core-lstm.wasm.js",
+        "libs/tessdata/por.traineddata.gz",
+        "libs/tessdata/eng.traineddata.gz",
+        "libs/tessdata/spa.traineddata.gz",
+        "libs/tessdata/fra.traineddata.gz",
+        "libs/tessdata/deu.traineddata.gz"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+

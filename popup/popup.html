@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OCR — Extrair Texto</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Cabeçalho ─────────────────────────────────────────────────────── -->
+    <header class="header">
+      <div class="header-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 6h16M4 10h10M4 14h7" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round"/>
+          <circle cx="17" cy="16" r="3" stroke="currentColor" stroke-width="2"/>
+          <path d="M19.5 18.5L22 21" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h1>Extrair Texto</h1>
+        <span class="header-subtitle">OCR local · Tesseract.js</span>
+      </div>
+    </header>
+
+    <!-- ── Estado: Idle — botão principal de captura ─────────────────────── -->
+    <section id="state-idle" class="state-panel" role="main">
+      <div class="capture-action">
+
+        <!-- Ícone de captura de tela -->
+        <div class="capture-icon-wrap" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Moldura de screenshot -->
+            <rect x="6" y="10" width="52" height="36" rx="4"
+                  stroke="currentColor" stroke-width="2.5"/>
+            <!-- Conteúdo da tela (linhas de texto) -->
+            <path d="M14 22h20M14 29h14M14 36h18"
+                  stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" opacity="0.5"/>
+            <!-- Canto de seleção superior-esquerdo -->
+            <path d="M36 18v-6h6" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Canto de seleção superior-direito -->
+            <path d="M50 18v-6h-6" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Canto de seleção inferior-esquerdo -->
+            <path d="M36 34v6h6" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Canto de seleção inferior-direito -->
+            <path d="M50 34v6h-6" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <h2 class="capture-title">Capturar área da tela</h2>
+        <p class="capture-desc">
+          Clique no botão e arraste sobre qualquer região da tela —
+          textos, diálogos, imagens, PDFs — para extrair o conteúdo via OCR.
+        </p>
+
+        <button id="btn-capture" class="btn btn-capture">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M3 7V4.5A1.5 1.5 0 0 1 4.5 3H7"
+                  stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M13 3h2.5A1.5 1.5 0 0 1 17 4.5V7"
+                  stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M17 13v2.5A1.5 1.5 0 0 1 15.5 17H13"
+                  stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M7 17H4.5A1.5 1.5 0 0 1 3 15.5V13"
+                  stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M7 10h6M10 7v6" stroke="currentColor"
+                  stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          Selecionar área
+        </button>
+
+        <p class="capture-hint">
+          A janela fechará automaticamente para você fazer a seleção.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Estado: Aguardando seleção ────────────────────────────────────── -->
+    <section id="state-selecting" class="state-panel hidden"
+             role="status" aria-live="polite" aria-label="Aguardando seleção">
+      <div class="selecting-container">
+
+        <!-- Animação de crosshair -->
+        <div class="crosshair-anim" aria-hidden="true">
+          <div class="ch-h"></div>
+          <div class="ch-v"></div>
+          <div class="ch-corner ch-tl"></div>
+          <div class="ch-corner ch-tr"></div>
+          <div class="ch-corner ch-bl"></div>
+          <div class="ch-corner ch-br"></div>
+        </div>
+
+        <p class="selecting-title">Aguardando seleção…</p>
+        <p class="selecting-desc">
+          Volte à página e arraste para selecionar a área desejada.
+        </p>
+        <button id="btn-cancel-capture" class="btn btn-secondary">
+          Cancelar (Esc)
+        </button>
+      </div>
+    </section>
+
+    <!-- ── Estado: Processando OCR ────────────────────────────────────────── -->
+    <section id="state-loading" class="state-panel hidden" role="status"
+             aria-live="polite" aria-label="Processando imagem">
+      <div class="loading-container">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="loading-title">Processando OCR…</p>
+        <p id="loading-detail" class="loading-detail">Iniciando…</p>
+        <div class="progress-track" role="progressbar"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+             id="progress-track">
+          <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+        </div>
+        <span id="progress-pct" class="progress-pct" aria-hidden="true">0%</span>
+      </div>
+    </section>
+
+    <!-- ── Estado: Resultado ──────────────────────────────────────────────── -->
+    <section id="state-result" class="state-panel hidden" role="main">
+      <div class="result-header">
+        <span class="result-label">Texto extraído</span>
+        <div class="result-actions">
+          <button id="btn-copy" class="btn btn-primary" title="Copiar texto (Ctrl+C)">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="7" y="7" width="10" height="11" rx="1.5"
+                    stroke="currentColor" stroke-width="1.5"/>
+              <path d="M13 7V5a1.5 1.5 0 0 0-1.5-1.5h-7A1.5 1.5 0 0 0 3 5v9
+                       A1.5 1.5 0 0 0 4.5 15.5H7"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Copiar
+          </button>
+          <button id="btn-download" class="btn btn-secondary" title="Salvar como .txt">
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor"
+                    stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 15h14" stroke="currentColor"
+                    stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            .txt
+          </button>
+          <button id="btn-new" class="btn btn-ghost" title="Nova captura">
+            Nova
+          </button>
+        </div>
+      </div>
+
+      <textarea id="result-text" class="result-textarea" readonly
+                placeholder="Nenhum texto detectado nesta área."
+                aria-label="Texto extraído pela OCR"></textarea>
+
+      <div id="copy-feedback" class="copy-feedback hidden" role="status"
+           aria-live="polite">
+        ✓ Copiado!
+      </div>
+    </section>
+
+    <!-- ── Estado: Erro ───────────────────────────────────────────────────── -->
+    <section id="state-error" class="state-panel hidden" role="alert">
+      <div class="error-container">
+        <svg class="error-icon" viewBox="0 0 24 24" fill="none"
+             xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 8v4" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round"/>
+          <circle cx="12" cy="16" r="1" fill="currentColor"/>
+        </svg>
+        <p class="error-title">Falha na extração</p>
+        <p id="error-message" class="error-message"></p>
+        <div class="error-actions">
+          <button id="btn-retry" class="btn btn-secondary">Tentar novamente</button>
+          <button id="btn-reset" class="btn btn-ghost">Voltar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Preview da região capturada ───────────────────────────────────── -->
+    <div id="image-preview-section" class="hidden">
+      <div class="preview-label">Região selecionada</div>
+      <div class="preview-wrapper">
+        <img id="image-preview" class="preview-img"
+             alt="Região capturada para OCR" />
+      </div>
+    </div>
+
+    <!-- ── Rodapé — seleção de idioma ────────────────────────────────────── -->
+    <footer class="footer">
+      <label for="lang-select" class="lang-label">Idioma:</label>
+      <select id="lang-select" class="lang-select"
+              title="Idioma para o reconhecimento de texto">
+        <option value="por+eng" selected>Português + Inglês</option>
+        <option value="por">Português</option>
+        <option value="eng">Inglês</option>
+        <option value="por+eng+spa">PT + EN + Espanhol</option>
+        <option value="fra">Francês</option>
+        <option value="deu">Alemão</option>
+      </select>
+      <span class="footer-badge" title="Processamento 100% local">🔒 Local</span>
+    </footer>
+
+  </div><!-- /#app -->
+
+  <script src="../libs/tesseract.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
