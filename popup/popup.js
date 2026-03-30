@@ -105,22 +105,59 @@ async function runOCR(imageData, lang) {
 
   setProgress(0, 'Iniciando engine OCR…');
 
+  // workerBlobURL: false → cria o worker diretamente da URL chrome-extension://
+  // (o padrão true cria um blob: worker cuja origem é null e não consegue
+  //  fazer fetch de recursos chrome-extension://)
   const workerPath = chrome.runtime.getURL('libs/worker.min.js');
-  // corePath deve apontar ao DIRETÓRIO — o worker anexa o nome do arquivo (ex: /tesseract-core-simd-lstm.wasm.js)
   const corePath   = chrome.runtime.getURL('libs');
-  // langPath local — evita requisições externas bloqueadas pelo CSP da extensão
-  const langPath   = chrome.runtime.getURL('libs/tessdata');
 
-  const worker = await Tesseract.createWorker(lang, 1, {
+  // === Pré-carregar traineddata no popup (tem acesso total à chrome-extension://) ===
+  const langs = lang.split('+');
+  const trainedDataFiles = {};
+
+  for (let i = 0; i < langs.length; i++) {
+    const l = langs[i];
+    setProgress(3 + Math.round((i / langs.length) * 15), `Carregando idioma: ${l}…`);
+
+    const url = chrome.runtime.getURL(`libs/tessdata/${l}.traineddata.gz`);
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Falha ao carregar dados de idioma: ${l} (HTTP ${resp.status})`);
+
+    // Descomprimir gzip na thread principal (DecompressionStream — disponível no Chrome MV3)
+    const compressed = await resp.arrayBuffer();
+    const ds = new DecompressionStream('gzip');
+    const writer = ds.writable.getWriter();
+    writer.write(new Uint8Array(compressed));
+    writer.close();
+    trainedDataFiles[l] = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+  }
+
+  setProgress(20, 'Inicializando engine OCR…');
+
+  // Criar worker sem carregar idioma ('' é falsy → pula loadLanguage interno)
+  const worker = await Tesseract.createWorker('', 1, {
     workerPath,
+    workerBlobURL: false,   // ← chave: usa chrome-extension:// diretamente
     corePath,
-    langPath,
     logger: handleTesseractLog,
   });
 
   activeWorker = worker;
 
   try {
+    // Escrever traineddata no filesystem virtual do Tesseract (Emscripten FS)
+    for (const [l, data] of Object.entries(trainedDataFiles)) {
+      await worker.FS('writeFile', `${l}.traineddata`, data);
+    }
+
+    setProgress(28, 'Inicializando reconhecimento…');
+
+    // Inicializar com dados já presentes no FS (cacheMethod:'none' + langPath inválido
+    // garante que não tenta baixar da rede — o arquivo já está no FS)
+    await worker.loadLanguage(lang, { langPath: '/', cacheMethod: 'none', gzip: false });
+    await worker.initialize(lang, 1);
+
+    setProgress(30, 'Reconhecendo texto…');
     const { data } = await worker.recognize(imageData);
     return data.text.trim();
   } finally {
@@ -132,13 +169,13 @@ async function runOCR(imageData, lang) {
 function handleTesseractLog(m) {
   switch (m.status) {
     case 'loading tesseract core':
-      setProgress(5,  'Carregando engine OCR…');  break;
+      setProgress(22, 'Carregando engine OCR…');  break;
     case 'initializing tesseract':
-      setProgress(10, 'Inicializando Tesseract…'); break;
+      setProgress(25, 'Inicializando Tesseract…'); break;
     case 'loading language traineddata':
-      setProgress(18, 'Baixando dados de idioma…'); break;
+      setProgress(27, 'Carregando dados de idioma…'); break;
     case 'initializing api':
-      setProgress(28, 'Inicializando API…'); break;
+      setProgress(29, 'Inicializando API…'); break;
     case 'recognizing text':
       setProgress(30 + Math.round(m.progress * 70), 'Reconhecendo texto…'); break;
     default:
