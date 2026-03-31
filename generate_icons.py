@@ -134,12 +134,12 @@ def fill_circle(pixels, cx, cy, r, color):
 
 # ─── Geração do ícone ─────────────────────────────────────────────────────────
 
-#: Azul principal da extensão (#007AFF)
-BLUE   = (0, 122, 255)
+#: Azul principal da extensão (#3b82f6 — SnapText OCR)
+BLUE   = (59, 130, 246)
 #: Branco para elementos em foreground
 WHITE  = (255, 255, 255)
 #: Fundo do ícone
-BG     = (0, 122, 255)   # fundo todo azul
+BG     = (59, 130, 246)   # fundo todo azul
 
 
 def make_icon_pixels(size: int) -> list[list[tuple[int, int, int]]]:

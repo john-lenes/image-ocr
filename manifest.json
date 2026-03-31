@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "OCR — Extrair Texto da Tela",
-  "version": "2.0.0",
-  "description": "Selecione qualquer área visível da tela e extraia o texto via OCR (Tesseract.js). Processamento 100% local — nenhum dado enviado a servidores.",
+  "name": "SnapText OCR",
+  "version": "1.0.0",
+  "description": "Selecione qualquer área da tela e extraia o texto em segundos. OCR 100% local com Tesseract.js — sem envio de dados.",
 
   "permissions": [
     "tabs",
@@ -21,7 +21,7 @@
 
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "OCR — Extrair Texto da Tela",
+    "default_title": "SnapText OCR — Extrair texto da tela",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -30,8 +30,8 @@
   },
 
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
     "128": "icons/icon128.png"
   },
 
@@ -53,4 +53,3 @@
     }
   ]
 }
-

@@ -162,9 +162,7 @@ async function processImage(imageData) {
     const text = await runOCR(imageData, lang);
     UI.resultText.value = text;
     showPanel('result');
-    if (!text) {
-      UI.resultText.placeholder = 'Nenhum texto detectado nesta área.';
-    }
+    // placeholder já definido no HTML: "Nenhum texto foi identificado nesta área."
     chrome.action.setBadgeText({ text: '' }).catch(() => {});
   } catch (err) {
     console.error('[OCR] Erro durante OCR:', err);
