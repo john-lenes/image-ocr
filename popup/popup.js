@@ -105,30 +105,49 @@ async function runOCR(imageData, lang) {
 
   setProgress(0, 'Iniciando engine OCR…');
 
-  // workerBlobURL: false → worker criado em chrome-extension:// (não como blob:null)
-  // Assim o worker pode fazer fetch() de chrome-extension:// URLs diretamente.
   const workerPath = chrome.runtime.getURL('libs/worker.min.js');
   const corePath   = chrome.runtime.getURL('libs');
   const langPath   = chrome.runtime.getURL('libs/tessdata');
 
-  const worker = await Tesseract.createWorker(lang, 1, {
-    workerPath,
-    workerBlobURL: false,
-    corePath,
-    langPath,
-    cacheMethod: 'none',  // não tenta gravar em IndexedDB (falha em extensões)
-    gzip: true,
-    logger: handleTesseractLog,
+  // Timeout de 90s — evita spinner infinito caso o WASM falhe silenciosamente
+  const TIMEOUT_MS = 90_000;
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new Error('OCR timeout: engine demorou mais de 90s. Recarregue a extensão e tente novamente.')),
+      TIMEOUT_MS,
+    );
   });
 
-  activeWorker = worker;
+  const ocrPromise = (async () => {
+    // workerBlobURL: false → worker roda em chrome-extension:// (não blob:null)
+    // Necessário para fetch() de recursos da extensão dentro do worker.
+    // 'wasm-unsafe-eval' no manifest CSP permite a compilação WebAssembly (MV3).
+    const worker = await Tesseract.createWorker(lang, 1, {
+      workerPath,
+      workerBlobURL: false,
+      corePath,
+      langPath,
+      cacheMethod: 'none',
+      gzip: true,
+      logger: handleTesseractLog,
+    });
+
+    activeWorker = worker;
+
+    try {
+      const { data } = await worker.recognize(imageData);
+      return data.text.trim();
+    } finally {
+      try { await worker.terminate(); } catch (_) {}
+      activeWorker = null;
+    }
+  })();
 
   try {
-    const { data } = await worker.recognize(imageData);
-    return data.text.trim();
+    return await Promise.race([ocrPromise, timeoutPromise]);
   } finally {
-    try { await worker.terminate(); } catch (_) {}
-    activeWorker = null;
+    clearTimeout(timeoutId);
   }
 }
 
@@ -181,6 +200,12 @@ async function processImage(imageData) {
 function buildFriendlyError(msg) {
   if (!msg) return 'Ocorreu um erro desconhecido. Tente novamente.';
 
+  if (/timeout/i.test(msg))
+    return 'OCR demorou demais. Recarregue a extensão em chrome://extensions e tente novamente.';
+
+  if (/wasm|webassembly|compile|instantiate/i.test(msg))
+    return 'Falha ao carregar engine OCR (WebAssembly). Recarregue a extensão e tente novamente.';
+
   if (/screenshot perdido|service worker/i.test(msg))
     return 'O processo foi interrompido. Clique em "Selecionar área" novamente.';
 
@@ -188,10 +213,10 @@ function buildFriendlyError(msg) {
     return 'A área selecionada é muito pequena. Arraste uma região maior.';
 
   if (/traineddata/i.test(msg))
-    return 'Falha ao baixar dados de idioma. Verifique sua conexão.';
+    return 'Falha ao carregar dados de idioma. Recarregue a extensão e tente novamente.';
 
   if (/networkerror|failed to fetch|network request failed/i.test(msg))
-    return 'Falha de rede. Verifique sua conexão com a internet.';
+    return 'Falha de rede ao carregar recursos OCR. Verifique se a extensão está íntegra.';
 
   if (/cannot access|cannot be scripted|no tab/i.test(msg))
     return 'Esta página não permite captura de tela (chrome://, extensões, PDF). Tente em uma página web normal.';
